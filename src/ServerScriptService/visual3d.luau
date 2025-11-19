@@ -8,7 +8,7 @@ Visual3D.DIRECTIONS = { -- converts between cell coordinates and wall coordinate
     DOWN = Vector2.new(0, -0.5),
     LEFT = Vector2.new(-0.5, 0),
     RIGHT = Vector2.new(0.5, 0)
-} -- .unit must be 0.5!!!
+} -- .magnitude must be 0.5!!!
 
 local function createWall(pos : Vector2, direction : Vector2) : Part
     local part = Instance.new("Part")
