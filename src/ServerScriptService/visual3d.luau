@@ -1,63 +1,73 @@
-local v3d = {}
-local SIZE_CONST = 10
+local Visual3D = {}
+local walls = {}
 
-v3d.dir = {
-    ["Up"] = Vector2.new(0, 0.5),
-    ["Down"] = Vector2.new(0, -0.5),
-    ["Left"] = Vector2.new(-0.5, 0),
-    ["Right"] = Vector2.new(0.5, 0)
-}
+Visual3D.SIZE_CONST = 10
 
-local walls : {{Part}} = {}
-local function createWall(pos : Vector2, direction) : Part
+Visual3D.DIRECTIONS = { -- converts between cell coordinates and wall coordinates
+    UP = Vector2.new(0, 0.5),
+    DOWN = Vector2.new(0, -0.5),
+    LEFT = Vector2.new(-0.5, 0),
+    RIGHT = Vector2.new(0.5, 0)
+} -- .unit must be 0.5!!!
+
+local function createWall(pos : Vector2, direction : Vector2) : Part
     local part = Instance.new("Part")
     part.Anchored = true
-    part.Size = Vector3.new(
-        SIZE_CONST,
-        SIZE_CONST * 0.5,
-        SIZE_CONST * 0.1
-    )
-
-    if direction == v3d.dir.Up or direction == v3d.dir.Down then
+    part.Size = Vector3.new(Visual3D.SIZE_CONST, Visual3D.SIZE_CONST * 0.5, Visual3D.SIZE_CONST * 0.1)
+    
+    if direction == Visual3D.DIRECTIONS.UP or direction == Visual3D.DIRECTIONS.DOWN then
         part.Orientation = Vector3.new(0, 90, 0)
     end
-    pos += direction
-
-    if not walls[pos.X] then
-        walls[pos.X] = {}
+    
+    local wallPos = pos + direction
+    part.Name = tostring(wallPos)
+    
+    if not walls[wallPos.X] then
+        walls[wallPos.X] = {}
     end
-    walls[pos.X][pos.Y] = part
-
+    walls[wallPos.X][wallPos.Y] = part
+    
+    -- Position in 3D space (swap x/z cuz I was drunk)
     part.Position = Vector3.new(
-        pos.Y * SIZE_CONST,
+        wallPos.Y * Visual3D.SIZE_CONST,
         2,
-        pos.X * SIZE_CONST
+        wallPos.X * Visual3D.SIZE_CONST
     )
     
     return part
 end
 
-function v3d.createCell(pos : Vector2) : Model
-    local model = Instance.new("Model", workspace)
-
-    if pos.X == 1 then
-        createWall(pos, v3d.dir.Left).Parent = model
-    end
-
-    if pos.Y == 1 then
-        createWall(pos, v3d.dir.Down).Parent = model
-    end
-
-    createWall(pos, v3d.dir.Up).Parent = model
-    createWall(pos, v3d.dir.Right).Parent = model
-
+function Visual3D.createCell(pos : Vector2) : Model
+    local model = Instance.new("Model")
     model.Name = `p:{pos.X};{pos.Y}`
-
+    
+    -- Create boundary walls
+    if pos.X == 1 then
+        createWall(pos, Visual3D.DIRECTIONS.LEFT).Parent = model
+    end
+    
+    if pos.Y == 1 then
+        createWall(pos, Visual3D.DIRECTIONS.DOWN).Parent = model
+    end
+    
+    -- Always create top and right walls
+    createWall(pos, Visual3D.DIRECTIONS.UP).Parent = model
+    createWall(pos, Visual3D.DIRECTIONS.RIGHT).Parent = model
+    
+    model.Parent = workspace
     return model
 end
 
-function v3d.breakWall(pos : Vector2, direction : number)
-    walls[pos.X][pos.Y]:Destroy()
+function Visual3D.breakWall(wallSpacePos : Vector2) : nil
+    local wall = walls[wallSpacePos.X] and walls[wallSpacePos.X][wallSpacePos.Y]
+    if wall then
+        wall:Destroy()
+        walls[wallSpacePos.X][wallSpacePos.Y] = nil
+    end
 end
 
-return v3d
+function Visual3D.findWallByPos(position : Vector2) : Part
+    return walls[position.X] and walls[position.X][position.Y]
+end
+
+return Visual3D
