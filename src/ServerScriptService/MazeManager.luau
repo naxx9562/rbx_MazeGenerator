@@ -3,13 +3,20 @@ MazeManager.__index = MazeManager
 
 local Visual3D = require(script.Parent.Visual3D)
 
-local MAP_SIZE = 35
-local CONFUSION_CHANCE = 0.02 -- range = [0; 1)
--- creates transitions between cells that shouldn't have them
--- can create large open spaces, so it's best not to use large numbers
+local MAP_SIZE = 15
+local MAX_BRANCHING = 3 -- < TODO
+local DEADEND_CHANCE = 0.1 --[[ range = [0; 1); ignores the main path
+It's not like it's a dead end. This property prevents further moves from the cell.
+Mainly intended for strange generations.
+]]
+
+local CONFUSION_IGNORE_MAIN = false -- CONFUSION_CHANCE -> 0 if not isMainPathFinished
+local CONFUSION_CHANCE = 0.02 --[[ range = [0; 1)
+creates transitions between cells that shouldn't have them
+can create large open spaces, so it's best not to use large numbers
+]]
 
 local MAX_TUNNEL_SIZE = 3
-
 --[[
 TODO: MAX_TUNNEL_SIZE doesn't work reliably on branch paths
 Only affects initial path generation properly
@@ -19,6 +26,7 @@ BUG: Additional paths ignore tunnel length limits.
 
 Future: Might add MIN_TUNNEL_SIZE if this ever becomes a real project
 ]]
+local isMainPathFinished = false
 
 function MazeManager.new()
     local self = setmetatable({}, MazeManager)
@@ -46,7 +54,8 @@ function MazeManager:_initializeMaze() : nil
             
             self.maze[x][y] = {
                 pos = position,
-                wasVisited = false
+                wasVisited = false,
+                isDeadend = false
             }
         end
     end
@@ -71,6 +80,11 @@ function MazeManager:getAvailableMoves(pos : Vector2) : {{pos : Vector2, dir : n
     local availableMoves = {}
     local previousTurn = self.path[self.turn - 1]
 
+    local curCell = self.maze[pos.X][pos.Y]
+    if curCell.isDeadend then
+        return {}
+    end
+
     local function smartCheck(target, directionVector)
         local resultVector = target + directionVector * 2
         if previousTurn and resultVector == previousTurn.pos then
@@ -81,16 +95,15 @@ function MazeManager:getAvailableMoves(pos : Vector2) : {{pos : Vector2, dir : n
             return
         end
 
-        if not self.maze[resultVector.X][resultVector.Y].wasVisited or math.random() <= CONFUSION_CHANCE then
+        if not self.maze[resultVector.X][resultVector.Y].wasVisited
+            or ((isMainPathFinished or not CONFUSION_IGNORE_MAIN) and math.random() <= CONFUSION_CHANCE)
+        then
             table.insert(availableMoves, {
                 cell = self.maze[resultVector.X][resultVector.Y],
                 direction = directionVector
             })
         end
     end
-
-    -- Clear debug visuals
-    workspace.DBG:ClearAllChildren()
 
     for directionName, directionVector in pairs(Visual3D.DIRECTIONS) do
         -- Check straight path limit
@@ -127,10 +140,18 @@ function MazeManager:findBacktrackPoint() : (number, {{pos : Vector2, dir : numb
     return nil
 end
 
+local exitPosition = nil
+
 function MazeManager:makeMove() : boolean
     local availableMoves = self:getAvailableMoves(self.currentPosition)
 
     if #availableMoves == 0 then
+        if not isMainPathFinished and (self.currentPosition.X == MAP_SIZE or self.currentPosition.Y == MAP_SIZE) then
+            isMainPathFinished = true
+            exitPosition = self.currentPosition
+            MazeManager:createDebugPart(exitPosition, Color3.new(0.3, 1, 0.3))
+        end
+
         local backtrackTurn, backtrackMoves = self:findBacktrackPoint()
         if not backtrackTurn then
             return false -- Maze generation complete
@@ -143,7 +164,7 @@ function MazeManager:makeMove() : boolean
 
     self.turn += 1
     local selectedMove = availableMoves[math.random(1, #availableMoves)]
-    
+
     Visual3D.breakWall(self.currentPosition + selectedMove.direction)
     
     if not self.path[self.turn] then
@@ -155,12 +176,16 @@ function MazeManager:makeMove() : boolean
     table.insert(self.path[self.turn].turns, self.lastDirection)
     
     selectedMove.cell.wasVisited = true
+
+    if isMainPathFinished and math.random() <= DEADEND_CHANCE then
+        self.maze[self.currentPosition.X][self.currentPosition.Y].isDeadend = true
+    end
     self.currentPosition = selectedMove.cell.pos
     
     return true -- Move successful
 end
 
-function MazeManager:generateDebugPart(pos : Vector2, color : Color3)
+function MazeManager:createDebugPart(pos : Vector2, color : Color3)
     local part = Instance.new("Part")
     part.Size = Vector3.one * 3
     part.Position = Vector3.new(pos.Y * Visual3D.SIZE_CONST, 0, pos.X * Visual3D.SIZE_CONST)

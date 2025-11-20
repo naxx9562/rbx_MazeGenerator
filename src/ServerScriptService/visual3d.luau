@@ -1,6 +1,13 @@
 local Visual3D = {}
 local walls = {}
 
+--[[
+PERFORMANCE TODO: Batch wall creation for better optimization
+Current: All walls created upfront -> breakWall() destroys them during generation
+Target: Calculate all wall positions -> create walls, without using breakWall()
+Tradeoff: Lose real-time visualization (it worth in prod xd)
+]]
+
 Visual3D.SIZE_CONST = 10
 
 Visual3D.DIRECTIONS = { -- converts between cell coordinates and wall coordinates
