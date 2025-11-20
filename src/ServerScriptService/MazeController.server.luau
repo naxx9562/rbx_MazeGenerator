@@ -39,17 +39,13 @@ local function createExit() : nil
         error("There is no createExit result")
     end
 
-    MazeManager:createDebugPart(result, Color3.new(0, 1, 0))
+    MazeManager:createDebugPart(result, Color3.new(0, 1, 0)).Size = Vector3.new(3, 67, 3)
     print("Exit point created")
 end
 
-while true do -- use task.wait(any number) 4 realtime visualization
-    local success = mazeManager:makeMove()
-    if success then
-        continue
-    end
-
-    print(`Maze generation complete in {math.floor((os.clock() - startClock) * 1000)}ms`)
-    createExit()
-    break
+while mazeManager:makeMove() do
+    --task.wait() --uncomment this
 end
+
+print(`Maze generation complete in {math.floor((os.clock() - startClock) * 1000)}ms`)
+createExit()
