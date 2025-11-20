@@ -3,15 +3,15 @@ MazeManager.__index = MazeManager
 
 local Visual3D = require(script.Parent.Visual3D)
 
-local MAP_SIZE = 15
+local MAP_SIZE = 30
 local MAX_BRANCHING = 3 -- < TODO
-local DEADEND_CHANCE = 0.1 --[[ range = [0; 1); ignores the main path
+local DEADEND_CHANCE = 0.15 --[[ range = [0; 1); ignores the main path
 It's not like it's a dead end. This property prevents further moves from the cell.
 Mainly intended for strange generations.
 ]]
 
 local CONFUSION_IGNORE_MAIN = false -- CONFUSION_CHANCE -> 0 if not isMainPathFinished
-local CONFUSION_CHANCE = 0.02 --[[ range = [0; 1)
+local CONFUSION_CHANCE = 0.04 --[[ range = [0; 1)
 creates transitions between cells that shouldn't have them
 can create large open spaces, so it's best not to use large numbers
 ]]
@@ -148,8 +148,6 @@ function MazeManager:makeMove() : boolean
     if #availableMoves == 0 then
         if not isMainPathFinished and (self.currentPosition.X == MAP_SIZE or self.currentPosition.Y == MAP_SIZE) then
             isMainPathFinished = true
-            exitPosition = self.currentPosition
-            MazeManager:createDebugPart(exitPosition, Color3.new(0.3, 1, 0.3))
         end
 
         local backtrackTurn, backtrackMoves = self:findBacktrackPoint()
@@ -185,15 +183,22 @@ function MazeManager:makeMove() : boolean
     return true -- Move successful
 end
 
-function MazeManager:createDebugPart(pos : Vector2, color : Color3)
+function MazeManager:createDebugPartGlobalSpace(pos : Vector3, color : Color3)
     local part = Instance.new("Part")
     part.Size = Vector3.one * 3
-    part.Position = Vector3.new(pos.Y * Visual3D.SIZE_CONST, 0, pos.X * Visual3D.SIZE_CONST)
+    part.Position = pos
     part.Anchored = true
     part.Color = color or Color3.new(0, 0, 1)
     part.Parent = workspace.DBG
     
     return part
+end
+
+function MazeManager:createDebugPart(pos : Vector2, color : Color3)
+    return MazeManager:createDebugPartGlobalSpace(
+        Vector3.new(pos.Y * Visual3D.SIZE_CONST, 0, pos.X * Visual3D.SIZE_CONST),
+        color
+    )
 end
 
 return MazeManager
